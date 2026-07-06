@@ -1,0 +1,43 @@
+name: Note 毎日自動投稿
+
+on:
+  schedule:
+    # 毎日 10:00 JST に実行 (UTC 01:00)
+    - cron: '0 1 * * *'
+  workflow_dispatch: # 手動実行ボタンも有効
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v4
+
+      - name: Python 3.11 をセットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 依存パッケージをインストール
+        run: |
+          pip install -r requirements.txt
+          python -m playwright install chromium
+          python -m playwright install-deps chromium
+
+      - name: noteに記事を投稿
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          NOTE_EMAIL: ${{ secrets.NOTE_EMAIL }}
+          NOTE_PASSWORD: ${{ secrets.NOTE_PASSWORD }}
+        run: python note_poster.py
+
+      - name: エラースクリーンショットをアップロード（失敗時）
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: error-screenshots
+          path: "*.png"
+          retention-days: 3
