@@ -205,6 +205,11 @@ async def post_to_note(title: str, content: str) -> None:
 
 
 async def main() -> None:
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    print(f"APIキー確認: {'設定済み (' + str(len(api_key)) + '文字)' if api_key else '未設定！'}")
+    if not api_key:
+        raise ValueError("ANTHROPIC_API_KEYが設定されていません")
+
     print("📝 記事を生成中...")
     title, content = generate_article()
     print(f"  タイトル: {title}")
