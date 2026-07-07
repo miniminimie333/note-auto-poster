@@ -61,6 +61,57 @@ CONTENT:
     return title, content
 
 
+def fact_check_article(title: str, content: str) -> tuple[str, str]:
+    client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+
+    response = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=3000,
+        messages=[{
+            "role": "user",
+            "content": f"""以下のnote記事のファクトチェックをしてください。
+
+タイトル：{title}
+
+本文：
+{content}
+
+以下の観点で確認・修正してください：
+1. 医学・健康に関する主張が科学的根拠に基づいているか
+2. 効果を断言しすぎている表現がないか（「必ず〜」「絶対に〜」など）
+3. 誤解を招く表現や誇張がないか
+4. 口腔ケアと疲労改善に関して不正確な情報がないか
+
+問題がある箇所は修正し、以下の形式で出力してください：
+
+TITLE: （修正後のタイトル。問題なければ元のまま）
+
+CONTENT:
+（修正後の本文。問題なければ元のまま）
+
+ISSUES:
+（修正した点のリスト。問題なければ「なし」）
+""",
+        }],
+    )
+
+    raw = response.content[0].text
+    title_out = title
+    content_out = content
+    issues = "なし"
+
+    if "TITLE:" in raw and "CONTENT:" in raw:
+        after_title = raw.split("TITLE:")[1]
+        title_out = after_title.split("\n")[0].strip()
+        content_out = after_title.split("CONTENT:")[1].split("ISSUES:")[0].strip()
+
+    if "ISSUES:" in raw:
+        issues = raw.split("ISSUES:")[1].strip()
+
+    print(f"  ファクトチェック結果: {issues}")
+    return title_out, content_out
+
+
 async def post_to_note(title: str, content: str) -> None:
     email = os.environ["NOTE_EMAIL"]
     password = os.environ["NOTE_PASSWORD"]
@@ -157,6 +208,10 @@ async def main() -> None:
     print("📝 記事を生成中...")
     title, content = generate_article()
     print(f"  タイトル: {title}")
+
+    print("🔍 ファクトチェック中...")
+    title, content = fact_check_article(title, content)
+    print(f"  確認済みタイトル: {title}")
 
     print("🚀 noteに投稿中...")
     await post_to_note(title, content)
